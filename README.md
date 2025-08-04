@@ -7,92 +7,139 @@
 
 1. `Выполняю docker compose up -d проверяю результат`
 
+![1](https://github.com/Foxbeerxxx/elastic-stack/blob/main/img/img1.png)
+```
+Для себя
 
-2. `Заполните здесь этапы выполнения, если требуется ....`
-3. `Заполните здесь этапы выполнения, если требуется ....`
-4. `Заполните здесь этапы выполнения, если требуется ....`
-5. `Заполните здесь этапы выполнения, если требуется ....`
-6. 
+##Предварительно выполнить на Linux хосте команду: sudo sysctl -w vm.max_map_count=262144
+##https://www.elastic.co/guide/en/elasticsearch/reference/current/docker.html#_set_vm_max_map_count_to_at_least_262144
+#
+##kibana address: http://127.0.0.1:5601 будет доступно через ~1-2 мин
+#
+#
+version: '2.2'
+services:
+
+  es-hot:
+    image: elasticsearch:8.7.0
+    container_name: es-hot
+    environment:
+      - node.name=es-hot
+      - cluster.name=es-docker-cluster
+      - discovery.seed_hosts=es-hot,es-warm
+      - cluster.initial_master_nodes=es-hot,es-warm
+      - node.roles=master,data_content,data_hot  
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "http.host=0.0.0.0"
+      - xpack.security.enabled=false
+    volumes:
+      - data01:/usr/share/elasticsearch/data:Z
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - 9200:9200
+    networks:
+      - elastic
+    depends_on:
+      - es-warm
+
+  es-warm:
+    image: elasticsearch:8.7.0
+    container_name: es-warm
+    environment:
+      - node.name=es-warm
+      - cluster.name=es-docker-cluster
+      - discovery.seed_hosts=es-hot,es-warm
+      - cluster.initial_master_nodes=es-hot,es-warm
+      - node.roles=master,data_warm
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+      - "http.host=0.0.0.0"
+    volumes:
+      - data02:/usr/share/elasticsearch/data:Z
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    networks:
+      - elastic
+
+  kibana:
+    image: kibana:8.7.0
+    container_name: kibana
+    ports:
+      - 5601:5601
+    environment:
+      ELASTICSEARCH_URL: http://es-hot:9200
+      ELASTICSEARCH_HOSTS: '["http://es-hot:9200","http://es-warm:9200"]'
+    networks:
+      - elastic
+    depends_on:
+      - es-hot
+      - es-warm
+
+  logstash:
+    image: logstash:8.7.0
+    container_name: logstash
+    environment:
+      - "LS_JAVA_OPTS=-Xms256m -Xmx256m"
+    ports:
+      - 5046:5046
+      - 5044:5044
+    volumes:
+      - ./configs/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:Z
+      - ./configs/logstash.yml:/opt/logstash/config/logstash.yml:Z
+    networks:
+      - elastic
+    depends_on:
+      - es-hot
+      - es-warm
+
+  filebeat:
+    image: elastic/filebeat:8.7.0
+    container_name: filebeat
+    privileged: true
+    user: root
+    command: filebeat -e -strict.perms=false
+    volumes:
+      - ./configs/filebeat.yml:/usr/share/filebeat/filebeat.yml:Z
+      - /var/lib/docker:/var/lib/docker:Z
+      - /var/run/docker.sock:/var/run/docker.sock:Z
+    depends_on:
+      - logstash
+    networks:
+      - elastic
+
+  some_application:
+    image: library/python:3.9-alpine
+    container_name: some_app
+    volumes:
+      - ./pinger/:/opt/:Z
+    entrypoint: python3 /opt/run.py
+
+volumes:
+  data01:
+    driver: local
+  data02:
+    driver: local
+  data03:
+    driver: local
+
+networks:
+  elastic:
+    driver: bridge
+
 
 ```
-Поле для вставки кода...
-....
-....
-....
-....
-```
 
-`При необходимости прикрепитe сюда скриншоты
-![Название скриншота 1](ссылка на скриншот 1)`
+2. `Пробую ввод индекса logstash-*`
+![2](https://github.com/Foxbeerxxx/elastic-stack/blob/main/img/img2.png)
 
-
----
-
-### Задание 2
-
-`Приведите ответ в свободной форме........`
-
-1. `Заполните здесь этапы выполнения, если требуется ....`
-2. `Заполните здесь этапы выполнения, если требуется ....`
-3. `Заполните здесь этапы выполнения, если требуется ....`
-4. `Заполните здесь этапы выполнения, если требуется ....`
-5. `Заполните здесь этапы выполнения, если требуется ....`
-6. 
-
-```
-Поле для вставки кода...
-....
-....
-....
-....
-```
-
-`При необходимости прикрепитe сюда скриншоты
-![Название скриншота 2](ссылка на скриншот 2)`
-
-
----
-
-### Задание 3
-
-`Приведите ответ в свободной форме........`
-
-1. `Заполните здесь этапы выполнения, если требуется ....`
-2. `Заполните здесь этапы выполнения, если требуется ....`
-3. `Заполните здесь этапы выполнения, если требуется ....`
-4. `Заполните здесь этапы выполнения, если требуется ....`
-5. `Заполните здесь этапы выполнения, если требуется ....`
-6. 
-
-```
-Поле для вставки кода...
-....
-....
-....
-....
-```
-
-`При необходимости прикрепитe сюда скриншоты
-![Название скриншота](ссылка на скриншот)`
-
-### Задание 4
-
-`Приведите ответ в свободной форме........`
-
-1. `Заполните здесь этапы выполнения, если требуется ....`
-2. `Заполните здесь этапы выполнения, если требуется ....`
-3. `Заполните здесь этапы выполнения, если требуется ....`
-4. `Заполните здесь этапы выполнения, если требуется ....`
-5. `Заполните здесь этапы выполнения, если требуется ....`
-6. 
-
-```
-Поле для вставки кода...
-....
-....
-....
-....
-```
-
-`При необходимости прикрепитe сюда скриншоты
-![Название скриншота](ссылка на скриншот)`
